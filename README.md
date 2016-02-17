@@ -1,7 +1,7 @@
 Investigation of Recurrent Neural Network Architectures and Learning Methods for Spoken Language Understanding
 ==============================================================================================================
 
-### Code for RNN and Spoken Language Understanding
+### This is the code for RNN and Spoken Language Understanding
 
 Based on the Interspeech '13 paper:
 
