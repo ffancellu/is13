@@ -1,15 +1,9 @@
 import numpy
-import pdb
-import cPickle
-import random
-import os
-import stat
-import subprocess
-from os.path import isfile, join
-from os import chmod
-from is13.data.load import download
+from sklearn import metrics
 
-PREFIX = os.getenv('ATISDATA', '')
+import codecs
+
+# PREFIX = os.getenv('ATISDATA', '')
 
 def conlleval(p, g, w, filename):
     '''
@@ -31,60 +25,35 @@ def conlleval(p, g, w, filename):
             out += w + ' ' + wl + ' ' + wp + '\n'
         out += 'EOS O O\n\n'
 
-    f = open(filename,'w')
+    f = codecs.open(filename,'w','utf8')
     f.writelines(out)
     f.close()
     
     return get_perf(filename)
 
 def get_perf(filename):
-    ''' run conlleval.pl perl script to obtain
-    precision/recall and F1 score '''
-    _conlleval = PREFIX + 'conlleval.pl'
-    if not isfile(_conlleval):
-        #download('http://www-etud.iro.umontreal.ca/~mesnilgr/atis/conlleval.pl') 
-        os.system('wget https://www.comp.nus.edu.sg/%7Ekanmy/courses/practicalNLP_2008/packages/conlleval.pl')
-        chmod('conlleval.pl', stat.S_IRWXU) # give the execute permissions
 
-    proc = subprocess.Popen(["perl", _conlleval], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    stdout, _ = proc.communicate(open(filename).read())
-    for line in stdout.split('\n'):
-        if 'accuracy' in line:
-            out = line.split()
-            break
-    
-    # out = ['accuracy:', '16.26%;', 'precision:', '0.00%;', 'recall:', '0.00%;', 'FB1:', '0.00']
-    
-    precision = float(out[3][:-2])
-    recall    = float(out[5][:-2])
-    f1score   = float(out[7])
+    with codecs.open(filename,'r','utf8') as f:
+        gs,ps = [],[]
+        for line in f:
+            line = line.strip()
+            if line!='':
+                w,g,p = line.split()
+                if g=="I": gs.append(1)
+                if g=="O": gs.append(0)
+                
+                if p=="I": ps.append(1)
+                if p=="O": ps.append(0)             
+    p,r,f1,s =  metrics.precision_recall_fscore_support(gs,ps)
 
-    return {'p':precision, 'r':recall, 'f1':f1score}
+    print metrics.classification_report(gs,ps)
+    print metrics.confusion_matrix(gs, ps)
+    # print {'p':res[0][0], 'r':res[1][0], 'f1':res[2][0]}
 
-def get_perfo(filename):
-    ''' 
-    work around for using a PERL script in python
-    dirty but still works.
-    '''
-    tempfile = str(random.randint(1,numpy.iinfo('i').max)) + '.txt'
-    if not isfile(PREFIX + 'conlleval.pl'):
-        os.system('wget https://www.comp.nus.edu.sg/%7Ekanmy/courses/practicalNLP_2008/packages/conlleval.pl')
-        #download('http://www-etud.iro.umontreal.ca/~mesnilgr/atis/conlleval.pl') 
-        chmod('conlleval.pl', stat.S_IRWXU) # give the execute permissions
-    if len(PREFIX) > 0:
-        chmod(PREFIX + 'conlleval.pl', stat.S_IRWXU) # give the execute permissions
-        cmd = PREFIX + 'conlleval.pl < %s | grep accuracy > %s'%(filename,tempfile)
-    else:
-        cmd = './conlleval.pl < %s | grep accuracy > %s'%(filename,tempfile)
-    print cmd
-    out = os.system(cmd)
-    out = open(tempfile).readlines()[0].split()
-    os.system('rm %s'%tempfile)
-    precision = float(out[6][:-2])
-    recall    = float(out[8][:-2])
-    f1score   = float(out[10])
-    return {'p':precision, 'r':recall, 'f1':f1score}
+    return {'p':numpy.average(p,weights=s), 'r':numpy.average(r,weights=s), 'f1':numpy.average(f1,weights=s)}
+
 
 if __name__ == '__main__':
     #print get_perf('valid.txt')
-    print get_perf('valid.txt')
+    print get_perf('/Users/ffancellu/git/is13/log/jordan/scope_neg_only_neg_elman_weights/best.test.txt')
+
